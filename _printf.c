@@ -1,90 +1,90 @@
+#include <stddef.h>
 #include "main.h"
-
-void cleanup(va_list args, buffer_t *output);
-int run_printf(const char *format, va_list args, buffer_t *output);
-int _printf(const char *format, ...);
-
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 /**
- * cleanup - Peforms cleanup operations for _printf.
- * @args: A va_list of arguments provided to _printf.
- * @output: A buffer_t struct.
+ * printIdentifiers - prints special characters
+ * @next: character after the %
+ * @arg: argument for the indentifier
+ * Return: the number of characters printed
+ * (excluding the null byte used to end output to strings)
  */
-void cleanup(va_list args, buffer_t *output)
+int printIdentifiers(char next, va_list arg)
 {
-	va_end(args);
-	write(1, output->start, output->len);
-	free_buffer(output);
-}
+	int functsIndex = 0;
 
-/**
- * run_printf - Reads through the format string for _printf.
- * @format: Character string to print - may contain directives.
- * @output: A buffer_t struct containing a buffer.
- * @args: A va_list of arguments.
- *
- * Return: The number of characters stored to output.
- */
-int run_printf(const char *format, va_list args, buffer_t *output)
-{
-	int i, wid, prec, ret = 0;
-	char tempo;
-	unsigned char flags, len;
-	unsigned int (*f)(va_list, buffer_t *,
-			unsigned char, int, int, unsigned char);
+	identifierStruct functs[] = {
+		{"c", print_char},
+		{"s", print_str},
+		{"d", print_int},
+		{"i", print_int},
+		{"u", print_unsigned},
+		{"b", print_unsignedToBinary},
+		{"o", print_oct},
+		{"x", print_hex},
+		{"X", print_HEX},
+		{"S", print_STR},
+		{NULL, NULL}
+	};
 
-	for (i = 0; *(format + i); i++)
+	for (functsIndex = 0; functs[functsIndex].indentifier != NULL; functsIndex++)
 	{
-		len = 0;
-		if (*(format + i) == '%')
-		{
-			tempo = 0;
-			flags = handle_flags(format + i + 1, &tempo);
-			wid = handle_width(args, format + i + tempo + 1, &tmp);
-			prec = handle_precision(args, format + i + tempo + 1,
-					&tempo);
-			len = handle_length(format + i + tempo + 1, &tmp);
-
-			f = handle_specifiers(format + i + tempo + 1);
-			if (f != NULL)
-			{
-				i += tempo + 1;
-				ret += f(args, output, flags, wid, prec, len);
-				continue;
-			}
-			else if (*(format + i + tempo + 1) == '\0')
-			{
-				ret = -1;
-				break;
-			}
-		}
-		ret += _memcpy(output, (format + i), 1);
-		i += (len != 0) ? 1 : 0;
+		if (functs[functsIndex].indentifier[0] == next)
+			return (functs[functsIndex].printer(arg));
 	}
-	cleanup(args, output);
-	return (ret);
+	return (0);
 }
-
 /**
- * _printf - Outputs a formatted string.
- * @format: Character string to print - may contain directives.
- *
- * Return: The number of characters printed.
+ * _printf - mimic printf from stdio
+ * Description: produces output according to a format
+ * write output to stdout, the standard output stream
+ * @format: character string composed of zero or more directives
+ * Return: the number of characters printed
+ * (excluding the null byte used to end output to strings)
+ * return -1 for incomplete identifier error
  */
+
 int _printf(const char *format, ...)
 {
-	buffer_t *output;
-	va_list args;
-	int ret;
+	unsigned int i;
+	int idPr = 0, cPr = 0;
+	va_list arg;
 
+	va_start(arg, format);
 	if (format == NULL)
 		return (-1);
-	output = init_buffer();
-	if (output == NULL)
-		return (-1);
 
-	va_start(args, format);
+	for (i = 0; format[i] != '\0'; i++)
+	{
+		if (format[i] != '%')
+		{
+			_putchar(format[i]);
+			cPr++;
+			continue;
+		}
+		if (format[i + 1] == '%')
+		{
+			_putchar('%');
+			cPr++;
+			i++;
+			continue;
+		}
+		if (format[i + 1] == '\0')
+			return (-1);
 
-	ret = run_printf(format, args, output);
+		idPr = printIdentifiers(format[i + 1], arg);
+		if (idPr == -1 || identifierPrinted != 0)
+			i++;
+		if (idPr > 0)
+			cPr += idPr;
 
-	return (ret);
+		if (idPr == 0)
+		{
+			_putchar('%');
+			cPr++;
+		}
+	}
+	va_end(arg);
+	return (cPr);
 }
